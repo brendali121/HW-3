@@ -1,6 +1,6 @@
 ---
 title: "MATH 216 Homework 3"
-author: "WRITE YOUR NAME HERE"
+author: "Brenda Li"
 output:
   html_document:
     toc: true
@@ -15,6 +15,7 @@ library(dplyr)
 library(readr)
 library(lubridate)
 library(Quandl)
+library(knitr)
 ```
 
 
@@ -23,10 +24,10 @@ library(Quandl)
 
 Please indicate
 
-* Who you collaborated with:
-* Roughly how much time you spent on this HW so far:
-* The URL of the RPubs published URL [here](https://www.nhl.com/).
-* What gave you the most trouble:
+* Who you collaborated with: Shannia Fu, Bianca Gonzalez
+* Roughly how much time you spent on this HW so far: 3.5 hours
+* The URL of the RPubs published URL [here](http://rpubs.com/brendali121/HW3).
+* What gave you the most trouble: deciding which variables to use in order to predict gender
 * Any comments you have:
 
 
@@ -81,6 +82,9 @@ to rate how well we performed.
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
 set.seed(76)
+profiles1<-profiles %>% filter(!is.na(height)) %>% mutate(income=as.factor(income)) 
+training_set<-sample_n(profiles1,2997)
+test_set<-anti_join(profiles1,training_set)
 
 ```
 
@@ -93,6 +97,17 @@ regression model to the `training` data. Assign this model to an R object called
 `predict_sex_model`, then rate how well the model performs on the `training` data.
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
+
+predict_sex_model<-glm(is_female~income+height,data=training_set,family="binomial")
+
+predictions<-training_set %>% 
+  select(is_female, income, height) %>% 
+  mutate(prob = predict(predict_sex_model, newdata=training_set, type="response")) %>% 
+  mutate(female_pred=round(prob)) %>% 
+  mutate(right=ifelse(is_female==female_pred,1,0))
+
+percent_right<-mean(predictions$right)
+percent_right
 
 ```
 
@@ -107,7 +122,14 @@ for each users' sex, then rate how well the model performs on the `test` data.
 type="response")` does? The help file is located in `?predict.glm`
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
+test_pred<-test_set %>% 
+  select(is_female, income, height) %>% 
+  mutate(prob = predict(predict_sex_model, newdata=test_set, type="response")) %>% 
+  mutate(female_pred=ifelse(prob>.5,1,0)) %>% 
+  mutate(right=ifelse(is_female==female_pred,1,0))
 
+percent_right<-mean(test_pred$right)
+percent_right
 ```
 
 
@@ -117,6 +139,7 @@ type="response")` does? The help file is located in `?predict.glm`
 Did the model perform better on the `training` data or the `test` data? Why
 do you think that is?
 
+The model performed a tiny bit better (about 0.6%) on the training data, which makes sense because the training data was used to design the model in the first place.  I am surprised, however, that the difference between the model's performance for the test data and the training data was so little; I expected the model to work a lot better on the training data.  The only reason I can think of for the lack of significant difference is the fact that income and height are fairly gender-discerning variables, so they would always be good predictors of gender and are not specific to just the training data.
 
 
 
@@ -135,9 +158,24 @@ Let the reference currency be US dollars. Analyze these results and provide
 insight to a foreign currency exchanger.
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
+gold<-Quandl("BUNDESBANK/BBK01_WT5511") %>% 
+  filter(Date %within% interval(ymd("2010-7-17"),ymd("2016-04-15"))) %>% 
+  mutate(prev=lead(Value,n=1)) %>% 
+  mutate(volatility=(Value-prev)/prev) %>% 
+  filter(!is.na(volatility))
+
+bitcoin<-Quandl("BAVERAGE/USD") %>% 
+  filter(Date %within% interval(ymd("2010-7-17"),ymd("2016-04-15"))) %>%
+  select(Date, `24h Average`) %>% 
+  rename(avg=`24h Average`) %>% 
+  mutate(prev=lead(avg,n=1)) %>% 
+  mutate(volatility=(avg-prev)/prev) %>% 
+  filter(!is.na(volatility))
+
+ggplot()+geom_line(data=bitcoin,aes(x=Date,y=volatility),colour="blue")+geom_line(data=gold,aes(x=Date,y=volatility),colour="red")+labs(title="Day-to-Day Volatility of Bitcoin and Gold")
 
 ```
-
+From the plot, you can see that gold is much more volatile than Bitcoin, as seen by the much greater range of the relative volatility.  Thus, it would be much less risky to exchange in Bitcoin, but if you're looking to make a large profit, you should invest in gold (which is riskier as well).
 
 
 
@@ -167,6 +205,7 @@ jukebox <- jukebox %>%
     artist = ifelse(artist == slagsmalsklubben, "Slagsmalsklubben", artist),
     artist = ifelse(artist == bjork_sugarcubes, "Bjork (Sugarcubes)", artist)
   )
+
 ```
 
 
@@ -177,6 +216,19 @@ the "graveyard shift" during the academic year? Define
 * the academic year as September through May (inclusive)
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
+juke<-jukebox %>%
+  mutate(date_time=parse_date_time(date_time,"a b d HMS Y")) %>% 
+  mutate(month=month(date_time)) %>% 
+  mutate(hour=hour(date_time)) %>% 
+  filter(month %in% c(9,10,11,12,1,2,3,4,5)==TRUE) %>% 
+  filter(hour %in% c(0,1,2,3,4,5,6,7,8)==TRUE)
+
+juke %>% 
+  group_by(artist) %>% 
+  summarise(count=n()) %>% 
+  arrange(desc(count)) %>% 
+  head(n=10) %>% 
+  kable()
 
 ```
 
