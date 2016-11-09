@@ -25,9 +25,9 @@ library(knitr)
 Please indicate
 
 * Who you collaborated with: Shannia Fu, Bianca Gonzalez
-* Roughly how much time you spent on this HW so far: 3.5 hours
+* Roughly how much time you spent on this HW so far: 4 hours
 * The URL of the RPubs published URL [here](http://rpubs.com/brendali121/HW3).
-* What gave you the most trouble: deciding which variables to use in order to predict gender
+* What gave you the most trouble:
 * Any comments you have:
 
 
@@ -84,7 +84,7 @@ to rate how well we performed.
 set.seed(76)
 profiles1<-profiles %>% filter(!is.na(height)) %>% mutate(income=as.factor(income)) 
 training_set<-sample_n(profiles1,2997)
-test_set<-anti_join(profiles1,training_set)
+test_set<-anti_join(profiles1,training_set,by="id")
 
 ```
 
@@ -139,7 +139,7 @@ percent_right
 Did the model perform better on the `training` data or the `test` data? Why
 do you think that is?
 
-The model performed a tiny bit better (about 0.6%) on the training data, which makes sense because the training data was used to design the model in the first place.  I am surprised, however, that the difference between the model's performance for the test data and the training data was so little; I expected the model to work a lot better on the training data.  The only reason I can think of for the lack of significant difference is the fact that income and height are fairly gender-discerning variables, so they would always be good predictors of gender and are not specific to just the training data.
+The model performed a tiny bit better (about 0.6%) on the training data, which makes sense because the training data was used to design the model in the first place. However, because the model did have similar performances on both sets of data, it indicates that the model was not overfit to the training data and is a pretty good model. 
 
 
 
@@ -162,7 +162,9 @@ gold<-Quandl("BUNDESBANK/BBK01_WT5511") %>%
   filter(Date %within% interval(ymd("2010-7-17"),ymd("2016-04-15"))) %>% 
   mutate(prev=lead(Value,n=1)) %>% 
   mutate(volatility=(Value-prev)/prev) %>% 
-  filter(!is.na(volatility))
+  filter(!is.na(volatility)) %>% 
+  mutate(type="gold") %>% 
+  select(Date,volatility,type)
 
 bitcoin<-Quandl("BAVERAGE/USD") %>% 
   filter(Date %within% interval(ymd("2010-7-17"),ymd("2016-04-15"))) %>%
@@ -170,12 +172,17 @@ bitcoin<-Quandl("BAVERAGE/USD") %>%
   rename(avg=`24h Average`) %>% 
   mutate(prev=lead(avg,n=1)) %>% 
   mutate(volatility=(avg-prev)/prev) %>% 
-  filter(!is.na(volatility))
+  filter(!is.na(volatility)) %>% 
+  mutate(type="Bitcoin") %>% 
+  select(Date, volatility,type)
 
-ggplot()+geom_line(data=bitcoin,aes(x=Date,y=volatility),colour="blue")+geom_line(data=gold,aes(x=Date,y=volatility),colour="red")+labs(title="Day-to-Day Volatility of Bitcoin and Gold")
+together<-bind_rows(gold,bitcoin)
+
+
+ggplot(data=together,aes(x=Date,y=volatility,col=type))+geom_line()+labs(title="Relative Volatility of Bitcoin and Gold")
 
 ```
-From the plot, you can see that gold is much more volatile than Bitcoin, as seen by the much greater range of the relative volatility.  Thus, it would be much less risky to exchange in Bitcoin, but if you're looking to make a large profit, you should invest in gold (which is riskier as well).
+From the plot, you can see that Bitcoin is much more volatile than gold, as seen by the much greater range of the relative volatility.  Thus, it would be much less risky to exchange in gold, but if you're looking to make a large profit, you should invest in bitcoin (which is riskier as well).
 
 
 
@@ -220,8 +227,8 @@ juke<-jukebox %>%
   mutate(date_time=parse_date_time(date_time,"a b d HMS Y")) %>% 
   mutate(month=month(date_time)) %>% 
   mutate(hour=hour(date_time)) %>% 
-  filter(month %in% c(9,10,11,12,1,2,3,4,5)==TRUE) %>% 
-  filter(hour %in% c(0,1,2,3,4,5,6,7,8)==TRUE)
+  filter(month %in% c(9,10,11,12,1,2,3,4,5)) %>% 
+  filter(hour %in% c(0,1,2,3,4,5,6,7,8))
 
 juke %>% 
   group_by(artist) %>% 
